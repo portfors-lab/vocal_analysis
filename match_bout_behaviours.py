@@ -28,7 +28,7 @@ def match_bout_to_behaviour(bout_file, behaviour_file, animal_id):
 
     # bout file imports funny, with a lot of extra columns
     # using the appropriate \t delimiter is worse for some reason
-    bout_times = pd.read_csv(bout_file, sep='\s', header=None)
+    bout_times = pd.read_csv(bout_file, sep='\s', header=None, skiprows=1)
     bout_times = bout_times.iloc[:,0:2] # so just remove extra columns
     bout_times.columns = ['start', 'end']
 
