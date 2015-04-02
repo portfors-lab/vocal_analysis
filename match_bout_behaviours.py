@@ -9,7 +9,7 @@ import re
 import pandas as pd
 import numpy as np
 
-def match_bout_to_behaviour(bout_file, behaviour_file, animal_id):
+def match_bout_to_behaviour(bout_file, behaviour_file, sync_file, animal_id):
     """Associates a behaviour to each bout, by finding which bouts are
     contained within behvaiour events.
 
@@ -18,6 +18,8 @@ def match_bout_to_behaviour(bout_file, behaviour_file, animal_id):
                     each row represents a bout
         behaviour_file : ELAN output file with  columns <start time>, <duration>, 
                          <behaviour type>, each row represents a behaviour event.
+        sync_file : An excel spreadsheet that has the time to add (in seconds) 
+                    to the behaviour times in cell Z2
         animal_id : Identifier to associate bouts found with the input files
 
     Returns:
@@ -31,6 +33,12 @@ def match_bout_to_behaviour(bout_file, behaviour_file, animal_id):
     bout_times = pd.read_csv(bout_file, sep='\s', header=None, skiprows=1)
     bout_times = bout_times.iloc[:,0:2] # so just remove extra columns
     bout_times.columns = ['start', 'end']
+
+    # Sync number always in excel cell Z2
+    xlsync = pd.ExcelFile(sync_file)
+    sync_time_offset = xlsync.parse().iloc[0,25]
+
+    behav['start'] = behav['start'] + sync_time_offset
 
     bout_behaviours = pd.DataFrame(columns=['bout', 'behaviour'])
     # may be a more efficient way to do this, but iterate over bouts for now
@@ -48,16 +56,17 @@ def match_bout_to_behaviour(bout_file, behaviour_file, animal_id):
 
 if __name__ == '__main__':
     import sys
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 4:
         print '''Not enough arguments. Usage:\n
-        python bout_behaviours.py <bout file directory> <behaviour file directory> <output directory>
+        python bout_behaviours.py <bout file directory> <behaviour file directory> <sync file directory> <output directory>
         '''
         sys.exit(-1)
 
     bout_dir = sys.argv[1]
     behave_dir = sys.argv[2]
-    if len(sys.argv) > 3:
-        outfile = os.path.join(sys.argv[3],'bout_behaviours.csv')
+    sync_dir = sys.argv[3]
+    if len(sys.argv) > 4:
+        outfile = os.path.join(sys.argv[4],'bout_behaviours.csv')
     else:
         outfile = 'bout_behaviours.csv'
 
@@ -66,8 +75,8 @@ if __name__ == '__main__':
 
     all_bouts =  pd.DataFrame(columns=['bout', 'behaviour'])
     for bout_file in bout_files:
-        # find matching behaviour file
 
+        # extract Mouse ID from file name
         # separate filenames from the filepath
         bout_fname = os.path.basename(bout_file)
         match = re.match('[a-zA-Z0-9]+_[a-zA-Z0-9]+_[a-zA-Z0-9]+', bout_fname)
@@ -75,17 +84,30 @@ if __name__ == '__main__':
             print 'Found invalid file name', bout_file
             continue
         prefix = match.group(0)
+        
+        # find matching behaviour file
         behaviour_file = glob.glob(os.path.join(behave_dir, prefix + '*ehavior*.txt'))
         # glob returns a list, there should be only a single match
         if len(behaviour_file) == 0:
-            print 'No behavour file for ', prefix
+            print 'No behaviour file for ', prefix
             continue
         elif len(behaviour_file) > 1:
-            print 'Mutltiple matches for behaviour file ', behaviour_file
+            print 'Mutltiple matches for behaviour files ', behaviour_file
         behaviour_file = behaviour_file[0]
-        print 'Matched {} file to {}'.format(bout_file, behaviour_file)
+
+        # more efficient to look only in animal ID named folder, but * cuz Im LayZ
+        print os.path.join(sync_dir, '*', prefix + '_Sync.xlsx')
+        sync_file = glob.glob(os.path.join(sync_dir, '*', prefix + '_Sync.xlsx'))
+        if len(sync_file) == 0:
+            print 'No sync file for ', prefix
+            continue
+        elif len(sync_file) > 1:
+            print 'Mutltiple matches for sync files ', sync_file
+        sync_file = sync_file[0]
+
+        print 'Matched {} file to {} and {}'.format(bout_file, behaviour_file, sync_file)
         
-        bb = match_bout_to_behaviour(bout_file, behaviour_file, prefix)
+        bb = match_bout_to_behaviour(bout_file, behaviour_file, sync_file, prefix)
         all_bouts = all_bouts.append(bb, ignore_index=True)
 
     print 'Finished finding bout behaviours. Bouts processed: ', len(all_bouts)
