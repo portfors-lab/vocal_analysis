@@ -50,7 +50,7 @@ def match_bout_to_behaviour(bout_file, behaviour_file, sync_file, animal_id):
             # behaviours do not overlap, so there can be only one
             behav_row = behav_row[0]
             bout_behaviours.loc[bout_num, 'bout'] =  animal_id + '_bout_' + str(bout_num +1)
-            bout_behaviours.loc[bout_num, 'behaviour'] = behav.loc[behav_row, 'behaviour']
+            bout_behaviours.loc[bout_num, 'behaviour'] = behav.iloc[behav_row].loc['behaviour']
     return bout_behaviours
 
 
